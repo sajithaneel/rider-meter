@@ -1,1 +1,327 @@
-# meter bike 
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rider Meter</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #101827;
+    color: white;
+    padding: 20px;
+}
+
+.container {
+    max-width: 450px;
+    margin: auto;
+}
+
+h1 {
+    text-align: center;
+    color: #00e5a0;
+}
+
+.card {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 15px;
+}
+
+.distance {
+    text-align: center;
+    font-size: 45px;
+    font-weight: bold;
+    color: #00e5a0;
+}
+
+.price {
+    text-align: center;
+    font-size: 35px;
+    color: #ffc107;
+    font-weight: bold;
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 10px;
+    font-size: 17px;
+    font-weight: bold;
+    margin-top: 10px;
+    cursor: pointer;
+}
+
+.start {
+    background: #00c853;
+    color: white;
+}
+
+.stop {
+    background: #e53935;
+    color: white;
+}
+
+.reset {
+    background: #64748b;
+    color: white;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    margin: 8px 0;
+    font-size: 16px;
+}
+
+label {
+    display: block;
+    margin-top: 12px;
+}
+
+.status {
+    text-align: center;
+    color: #00e5a0;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🛵 RIDER METER</h1>
+
+<div class="card">
+
+<p class="status" id="status">Ready to Start</p>
+
+<div class="distance">
+<span id="distance">0.00</span>
+<small>KM</small>
+</div>
+
+<div class="price">
+Rs. <span id="price">250</span>
+</div>
+
+<p style="text-align:center">Delivery Charge</p>
+
+<button class="start" onclick="startRide()">▶ START RIDE</button>
+
+<button class="stop" onclick="stopRide()">■ STOP RIDE</button>
+
+<button class="reset" onclick="resetRide()">↻ RESET</button>
+
+</div>
+
+<div class="card">
+
+<h3>💰 PRICE SETTINGS</h3>
+
+<label>First 2 KM Price (Rs.)</label>
+<input type="number" id="basePrice" value="250">
+
+<label>Additional KM Price (Rs.)</label>
+<input type="number" id="extraPrice" value="70">
+
+</div>
+
+<div class="card">
+
+<h3>📊 RIDE DETAILS</h3>
+
+<p>Distance: <span id="detailDistance">0.00</span> KM</p>
+
+<p>Duration: <span id="duration">0</span> min</p>
+
+<p>Total Charge: Rs. <span id="detailPrice">250</span></p>
+
+</div>
+
+</div>
+
+<script>
+
+let watchID = null;
+let running = false;
+let totalDistance = 0;
+let lastPosition = null;
+let startTime = null;
+let timer = null;
+
+function calculatePrice(km) {
+
+    let base = Number(document.getElementById("basePrice").value);
+    let extra = Number(document.getElementById("extraPrice").value);
+
+    if (km <= 2) return base;
+
+    return Math.ceil(base + (km - 2) * extra);
+}
+
+function updateDisplay() {
+
+    let price = calculatePrice(totalDistance);
+
+    document.getElementById("distance").innerText =
+        totalDistance.toFixed(2);
+
+    document.getElementById("price").innerText = price;
+
+    document.getElementById("detailDistance").innerText =
+        totalDistance.toFixed(2);
+
+    document.getElementById("detailPrice").innerText = price;
+}
+
+function startRide() {
+
+    if (running) return;
+
+    if (!navigator.geolocation) {
+        alert("GPS is not supported!");
+        return;
+    }
+
+    if (!navigator.geolocation) return;
+
+    running = true;
+    lastPosition = null;
+    startTime = Date.now();
+
+    document.getElementById("status").innerText =
+        "GPS Connecting...";
+
+    timer = setInterval(() => {
+
+        let minutes = Math.floor((Date.now() - startTime) / 60000);
+
+        document.getElementById("duration").innerText = minutes;
+
+    }, 1000);
+
+    watchID = navigator.geolocation.watchPosition(
+
+        function(position) {
+
+            let lat = position.coords.latitude;
+            let lon = position.coords.longitude;
+
+            if (lastPosition !== null) {
+
+                let distance = getDistance(
+                    lastPosition.lat,
+                    lastPosition.lon,
+                    lat,
+                    lon
+                );
+
+                // Ignore GPS jumps and very small movements
+                if (distance > 0.005 && distance < 0.5) {
+                    totalDistance += distance;
+                }
+
+            }
+
+            lastPosition = {lat: lat, lon: lon};
+
+            document.getElementById("status").innerText =
+                "🟢 RIDE IN PROGRESS";
+
+            updateDisplay();
+
+        },
+
+        function(error) {
+
+            running = false;
+
+            clearInterval(timer);
+
+            document.getElementById("status").innerText =
+                "GPS Error: " + error.message;
+
+            alert("GPS Permission and Location Settings Check කරන්න.");
+
+        },
+
+        {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 15000
+        }
+
+    );
+
+}
+
+function stopRide() {
+
+    if (!running) return;
+
+    running = false;
+
+    if (watchID !== null) {
+        navigator.geolocation.clearWatch(watchID);
+    }
+
+    clearInterval(timer);
+
+    document.getElementById("status").innerText =
+        "🔴 RIDE COMPLETED";
+
+}
+
+function resetRide() {
+
+    stopRide();
+
+    totalDistance = 0;
+    lastPosition = null;
+    startTime = null;
+
+    document.getElementById("duration").innerText = 0;
+    document.getElementById("status").innerText =
+        "Ready to Start";
+
+    updateDisplay();
+
+}
+
+function getDistance(lat1, lon1, lat2, lon2) {
+
+    const R = 6371;
+
+    let dLat = (lat2 - lat1) * Math.PI / 180;
+    let dLon = (lon2 - lon1) * Math.PI / 180;
+
+    let a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) *
+        Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) ** 2;
+
+    return R * 2 * Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1 - a)
+    );
+
+}
+
+updateDisplay();
+
+</script>
+
+</body>
+</html>
